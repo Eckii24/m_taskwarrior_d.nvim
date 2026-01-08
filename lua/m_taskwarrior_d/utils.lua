@@ -121,6 +121,93 @@ local function concat_with_quotes(tbl)
   return result
 end
 
+local function tokenize_tw_args(str)
+  local tokens = {}
+  local current = {}
+  local quote = nil
+
+  local function push()
+    if #current > 0 then
+      table.insert(tokens, table.concat(current))
+      current = {}
+    end
+  end
+
+  for i = 1, #str do
+    local ch = str:sub(i, i)
+    if quote then
+      if ch == quote then
+        quote = nil
+      else
+        table.insert(current, ch)
+      end
+    else
+      if ch == "\"" or ch == "'" then
+        quote = ch
+      elseif ch:match("%s") then
+        push()
+      else
+        table.insert(current, ch)
+      end
+    end
+  end
+  push()
+  return tokens
+end
+
+local function is_safe_mod_token(token)
+  if not token or token == "" then
+    return false
+  end
+
+  -- Filter/expression tokens that must not be applied as modifications.
+  if token == "(" or token == ")" then
+    return false
+  end
+  local lower = token:lower()
+  if lower == "and" or lower == "or" or lower == "xor" or lower == "!" then
+    return false
+  end
+
+  -- Regex /.../ and substitution /from/to/(g) are ambiguous; skip.
+  if token:match("^/.+/$") then
+    return false
+  end
+
+  -- Skip relational expressions like "urgency>5" or "due<=eom".
+  if token:match("[<>!=]=?") then
+    return false
+  end
+
+  -- Tag add/remove is safe.
+  if token:match("^[%+%-][%w_][%w_%-]*$") then
+    return true
+  end
+
+  -- Attribute modification like project:Home, priority:H, due:tomorrow.
+  -- Only accept plain attribute:value forms (no modifiers like .before/.not etc).
+  -- Those are filter-specific and don't translate cleanly to a modification.
+  if token:match("^[%w_]+:[^%s]+$") then
+    local attr = token:match("^([%w_]+):")
+    if attr and not attr:find("%.", 1, true) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function extract_safe_mods_from_filter(filter_str)
+  local tokens = tokenize_tw_args(filter_str)
+  local mods = {}
+  for _, token in ipairs(tokens) do
+    if is_safe_mod_token(token) then
+      table.insert(mods, token)
+    end
+  end
+  return mods
+end
+
 local function calculate_final_status(tasks)
   local pendingCount, activeCount, completedCount, deletedCount = 0, 0, 0, 0
   for _, task in ipairs(tasks) do
@@ -464,7 +551,12 @@ function M.apply_context_data(line, line_number)
     return
   end
   local _, _, query = string.match(line, M["task_query_pattern"].lua)
-  query = query.gsub(query, "status:.*%s", " ")
+
+  -- Taskwarrior filter strings can contain filter-only tokens (status filters,
+  -- boolean logic, regex, etc.) that should never be passed to `task <uuid> mod`.
+  -- Extract only tokens that are safe to apply as modifications.
+  local mods = extract_safe_mods_from_filter(query)
+  query = table.concat(mods, " ")
   local count = 1
   local uuid = nil
   local tasks = {}
