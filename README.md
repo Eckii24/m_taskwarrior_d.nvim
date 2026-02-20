@@ -62,6 +62,39 @@ The goals of this plugin are:
 - [x] Edit task detail within Neovim (through nui.nvim)
 - [x] `Query View` similar to `dateview` in Obsidian or `Viewport` in Taskwiki
 - [x] Virtual text for due and scheduled tasks
+- [x] Inline Taskwarrior attribute parsing
+
+## Inline Taskwarrior Attributes
+
+You can include Taskwarrior attributes directly in your markdown task text. The plugin will parse and apply them to the task in Taskwarrior, then display only the clean description in your markdown.
+
+**Supported attributes:**
+- **Projects**: `project:home`, `project:work.coding`
+- **Tags**: `+urgent`, `+shopping`, `-someday`
+- **Due dates**: `due:tomorrow`, `due:2024-12-31`, `due:eom`
+- **Scheduled dates**: `scheduled:monday`, `scheduled:2024-12-25`
+- **Priority**: `priority:H`, `priority:M`, `priority:L`
+- **Any Taskwarrior attribute**: `wait:1week`, `until:eoy`, `depends:UUID`, etc.
+
+**Example:**
+
+Before sync:
+```markdown
+- [ ] Buy groceries project:home +shopping due:friday
+```
+
+After `:TWSyncTasks`:
+```markdown
+- [ ] Buy groceries $id{uuid-here}
+```
+
+The task in Taskwarrior will have:
+- Description: `Buy groceries`
+- Project: `home`
+- Tags: `shopping`
+- Due: `friday`
+
+This allows you to quickly capture tasks with context inline, while keeping your markdown clean and readable.
 
 ## Maybe Feature
 
@@ -234,6 +267,7 @@ If you are using `markdown.nvim`, you can set the following configuration:
     - If they are all deleted tasks, it returns `deleted`.
     - If none of the above conditions are met, it returns "unknown" (or any other default value).
 - `:TWSyncTasks`: traverse the current buffer and sync all tasks
+  - Parses inline Taskwarrior attributes (e.g., `project:home`, `+tag`, `due:tomorrow`) and applies them to tasks
   - There are a few scenarios, that may happen:
     - If the task is not in Taskwarrior, and doesn't have UUID, it will add the task to Taskwarrior and add the UUID to the buffer
     - If the task is not in Taskwarrior, but have UUID in the follow format `$id{uuid}` then it will add the task to TaskWarrior and update the UUID
