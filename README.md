@@ -122,7 +122,7 @@ The goals of this plugin are:
         { silent = true }
       )
     -- Be caution: it may be slow to open large files, because it scan the whole buffer
-      vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost" }, {
+      vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePre" }, {
         group = vim.api.nvim_create_augroup("TWTask", { clear = true }),
         pattern = "*.md,*.markdown", -- Pattern to match Markdown files
         callback = function()
