@@ -44,10 +44,25 @@ function M.get_task_by(task_id, return_data)
     return nil
   end
 end
+-- TW attributes (project:X, +tag, due:X) must stay unquoted so Taskwarrior parses them.
+-- Plain description words are single-quoted for shell safety.
+function M.shell_escape_task_args(text)
+  local tokens = {}
+  for token in text:gmatch("%S+") do
+    if token:match("^[%+%-]%S+") or token:match("^%w[%w_%.]*:%S+") then
+      table.insert(tokens, token)
+    else
+      local escaped = token:gsub("'", "'\\''")
+      table.insert(tokens, "'" .. escaped .. "'")
+    end
+  end
+  return table.concat(tokens, " ")
+end
+
 -- Function to add a task
 function M.add_task(description)
   description = require("m_taskwarrior_d.utils").trim(description)
-  local command = string.format("task rc.verbose=new-uuid add \"%s\"", description)
+  local command = string.format("task rc.verbose=new-uuid add %s", M.shell_escape_task_args(description))
   local _, result = M.execute_taskwarrior_command(command, true)
   local task_uuid = string.match(result, "%x*-%x*-%x*-%x*-%x*")
   return task_uuid
@@ -67,7 +82,7 @@ function M.mark_task_done(task_id)
 end
 
 function M.modify_task(task_id, desc)
-  local command = string.format("task %s mod \"%s\"", task_id, desc)
+  local command = string.format("task %s mod %s", task_id, M.shell_escape_task_args(desc))
   local _, result = M.execute_taskwarrior_command(command, false)
 end
 
