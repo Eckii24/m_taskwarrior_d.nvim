@@ -44,26 +44,32 @@ function M.get_task_by(task_id, return_data)
     return nil
   end
 end
--- TW attributes (project:X, +tag, due:X) must stay unquoted so Taskwarrior parses them.
--- Plain description words are single-quoted for shell safety.
-function M.shell_escape_task_args(text)
-  local tokens = {}
-  for token in text:gmatch("%S+") do
-    if token:match("^[%+%-]%S+") or token:match("^%w[%w_%.]*:%S+") then
-      table.insert(tokens, token)
-    else
-      local escaped = token:gsub("'", "'\\''")
-      table.insert(tokens, "'" .. escaped .. "'")
-    end
+-- Execute taskwarrior directly with an argument list, bypassing the shell entirely.
+function M.execute_task_args(args, return_data, print_output)
+  local obj = vim.system(args, { text = true }):wait()
+  local output = obj.stdout or ""
+  if not return_data then
+    output = output .. (obj.stderr or "")
   end
-  return table.concat(tokens, " ")
+  if print_output then print(output) end
+  return obj.code, output
+end
+
+-- Split a whitespace-delimited string and append each token to args.
+-- Handles nil and empty strings safely (no-op).
+function M.append_tokens(args, str)
+  if not str or #str == 0 then return end
+  for token in str:gmatch("%S+") do
+    table.insert(args, token)
+  end
 end
 
 -- Function to add a task
 function M.add_task(description)
   description = require("m_taskwarrior_d.utils").trim(description)
-  local command = string.format("task rc.verbose=new-uuid add %s", M.shell_escape_task_args(description))
-  local _, result = M.execute_taskwarrior_command(command, true)
+  local args = { "task", "rc.verbose=new-uuid", "add" }
+  M.append_tokens(args, description)
+  local _, result = M.execute_task_args(args, true)
   local task_uuid = string.match(result, "%x*-%x*-%x*-%x*-%x*")
   return task_uuid
 end
@@ -82,20 +88,20 @@ function M.mark_task_done(task_id)
 end
 
 function M.modify_task(task_id, desc)
-  local command = string.format("task %s mod %s", task_id, M.shell_escape_task_args(desc))
-  local _, result = M.execute_taskwarrior_command(command, false)
+  local args = { "task", task_id, "mod" }
+  M.append_tokens(args, desc)
+  M.execute_task_args(args, false)
 end
 
 --Function to modify task's status completed, (pending), deleted, started, canceled
 function M.modify_task_status(task_id, new_status)
-  local command
   if M.status_map[new_status] == "active" then
-    command = string.format("task %s modify status:pending; task %s start", task_id, task_id)
+    M.execute_task_args({ "task", task_id, "modify", "status:pending" })
+    M.execute_task_args({ "task", task_id, "start" })
   else
     local status = M.status_map[new_status]
-    command = string.format("task %s modify status:%s", task_id, status)
+    M.execute_task_args({ "task", task_id, "modify", "status:" .. status })
   end
-  M.execute_taskwarrior_command(command)
 end
 
 function M.add_task_deps(current_task_id, deps)

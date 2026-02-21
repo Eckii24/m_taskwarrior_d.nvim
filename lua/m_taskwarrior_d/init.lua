@@ -241,7 +241,9 @@ function M.run_with_current(default_args)
     args = default_args,
     title = "Run task with " .. uuid,
     run = function(value)
-      M.task.execute_taskwarrior_command("task " .. uuid .. " " .. value, nil, true)
+      local args = { "task", uuid }
+      M.task.append_tokens(args, value)
+      M.task.execute_task_args(args, nil, true)
       M.utils.sync_task(current_line, line_number)
     end,
   })
@@ -256,7 +258,6 @@ local function split_by_newline(input)
 end
 
 function M.run_task(args)
-  local command = "task " .. table.concat(args, " ")
   if #args == 0 then
     M.ui.prompt_or_run({
       title = "Run task",
@@ -265,11 +266,16 @@ function M.run_task(args)
       end,
     })
   else
-    local _, result = M.task.execute_taskwarrior_command(command, true)
+    local task_args = { "task" }
+    for _, a in ipairs(args) do
+      M.task.append_tokens(task_args, a)
+    end
+    local _, result = M.task.execute_task_args(task_args, true)
     if #result == 0 then
       print("No task found")
       return
     end
+    local command = table.concat(args, " ")
     local task_commands_not_to_display = { "add", "mod", "del", "purge" }
     for _, keyword in ipairs(task_commands_not_to_display) do
       if string.find(command, keyword) then
@@ -318,7 +324,11 @@ function M.run_task_bulk(args)
         local current_line, _ = M.utils.get_line(line_num)
         local _, uuid = M.utils.extract_uuid(current_line)
         if uuid ~= nil then
-          local _, result = M.task.execute_taskwarrior_command("task rc.confirmation=off " .. uuid .. " " .. command)
+          local task_args = { "task", "rc.confirmation=off", uuid }
+          for _, a in ipairs(args) do
+            table.insert(task_args, a)
+          end
+          local _, result = M.task.execute_task_args(task_args)
           table.insert(results, result .. "\n")
         end
       end
@@ -504,7 +514,12 @@ function M.toggle_saved_queries(type)
 end
 
 function M.query_tasks(line_number, query, report)
-  local _, result = M.task.execute_taskwarrior_command("task " .. query .. " -TEMPLATE export " .. report .. " | jq 'sort_by(.entry)  | reverse'", true)
+  local args = { "task" }
+  M.task.append_tokens(args, query)
+  table.insert(args, "-TEMPLATE")
+  table.insert(args, "export")
+  M.task.append_tokens(args, report)
+  local _, result = M.task.execute_task_args(args, true)
   if result == nil then
     print("No results")
     return
@@ -517,6 +532,8 @@ function M.query_tasks(line_number, query, report)
     print("No results")
     return
   end
+  -- Sort by entry descending (equivalent to jq 'sort_by(.entry) | reverse')
+  table.sort(tasks, function(a, b) return (a.entry or "") > (b.entry or "") end)
   local lookup_table = M.utils.build_lookup(tasks)
   for _, item in ipairs(tasks) do
     local hierarchy = M.utils.build_hierarchy(item, visited, lookup_table)
