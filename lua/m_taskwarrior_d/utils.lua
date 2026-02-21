@@ -125,6 +125,10 @@ end
 -- Handles escaped quotes (\") and escaped backslashes (\\) within quoted strings.
 -- Example: 'description:"He said \"hello\""' -> ['description:He said "hello"']
 local function tokenize_tw_args(str)
+  if not str then
+    return {}
+  end
+
   local tokens = {}
   local current = {}
   local quote = nil -- Tracks the current quote type ('"' or "'" or nil if not in quote)
