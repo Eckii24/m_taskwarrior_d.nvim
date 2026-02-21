@@ -133,21 +133,36 @@ local function tokenize_tw_args(str)
     end
   end
 
-  for i = 1, #str do
+  local i = 1
+  while i <= #str do
     local ch = str:sub(i, i)
     if quote then
-      if ch == quote then
+      if ch == "\\" and i < #str then
+        local next_ch = str:sub(i + 1, i + 1)
+        if next_ch == quote or next_ch == "\\" then
+          table.insert(current, next_ch)
+          i = i + 2
+        else
+          table.insert(current, ch)
+          i = i + 1
+        end
+      elseif ch == quote then
         quote = nil
+        i = i + 1
       else
         table.insert(current, ch)
+        i = i + 1
       end
     else
       if ch == "\"" or ch == "'" then
         quote = ch
+        i = i + 1
       elseif ch:match("%s") then
         push()
+        i = i + 1
       else
         table.insert(current, ch)
+        i = i + 1
       end
     end
   end
