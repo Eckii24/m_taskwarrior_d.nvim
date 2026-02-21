@@ -639,7 +639,10 @@ function M.apply_context_data(line, line_number)
     end
   end
   for _, task_uuid in ipairs(tasks) do
-    require("m_taskwarrior_d.task").execute_taskwarrior_command("task " .. task_uuid .. " mod " .. query)
+    local task = require("m_taskwarrior_d.task")
+    local args = { "task", task_uuid, "mod" }
+    task.append_tokens(args, query)
+    task.execute_task_args(args)
   end
 end
 
