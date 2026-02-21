@@ -121,11 +121,15 @@ local function concat_with_quotes(tbl)
   return result
 end
 
+-- Tokenize a string into an array of tokens, respecting quoted strings and escape sequences.
+-- Handles escaped quotes (\") and escaped backslashes (\\) within quoted strings.
+-- Example: 'description:"He said \"hello\""' -> ['description:He said "hello"']
 local function tokenize_tw_args(str)
   local tokens = {}
   local current = {}
-  local quote = nil
+  local quote = nil -- Tracks the current quote type ('"' or "'" or nil if not in quote)
 
+  -- Push the current accumulated characters as a token if non-empty
   local function push()
     if #current > 0 then
       table.insert(tokens, table.concat(current))
@@ -136,36 +140,49 @@ local function tokenize_tw_args(str)
   local i = 1
   while i <= #str do
     local ch = str:sub(i, i)
+
     if quote then
+      -- Inside a quoted string: handle escapes and quote termination
       if ch == "\\" and i < #str then
+        -- Handle escape sequences: \<quote> or \\
         local next_ch = str:sub(i + 1, i + 1)
         if next_ch == quote or next_ch == "\\" then
+          -- Valid escape: add the escaped character and skip both backslash and next char
           table.insert(current, next_ch)
           i = i + 2
         else
+          -- Not a recognized escape: treat backslash as literal
           table.insert(current, ch)
           i = i + 1
         end
       elseif ch == quote then
+        -- Closing quote found: exit quoted mode
         quote = nil
         i = i + 1
       else
+        -- Regular character inside quoted string: add to current token
         table.insert(current, ch)
         i = i + 1
       end
     else
+      -- Outside a quoted string: handle quote start, whitespace, and regular chars
       if ch == "\"" or ch == "'" then
+        -- Opening quote: enter quoted mode
         quote = ch
         i = i + 1
       elseif ch:match("%s") then
+        -- Whitespace: token boundary. Push current token and skip whitespace
         push()
         i = i + 1
       else
+        -- Regular character: add to current token
         table.insert(current, ch)
         i = i + 1
       end
     end
   end
+
+  -- Push any remaining accumulated characters as final token
   push()
   return tokens
 end
