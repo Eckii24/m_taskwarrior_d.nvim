@@ -303,11 +303,6 @@ function M.run_task_bulk(args)
       end,
     })
   else
-    -- local _, result = M.task.execute_taskwarrior_command(command, true)
-    -- if #result == 0 then
-    --   print("No task found")
-    --   return
-    -- end
     local task_commands_not_to_display = { "add", "mod", "del", "purge" }
     local good_command = false
     local command = table.concat(args, " ")
