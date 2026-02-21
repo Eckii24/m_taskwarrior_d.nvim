@@ -5,19 +5,6 @@ function M.set_config(opts)
     M[k] = v
   end
 end
--- Function to execute Taskwarrior command
-function M.execute_taskwarrior_command(command, return_data, print_output)
-  if not return_data or return_data == nil then
-    command = command .. " 2>&1"
-  end
-  local handle = io.popen(command)
-  local result = handle:read("*a")
-  if print_output then
-    print(result)
-  end
-  local _, status, code = handle:close()
-  return code, result
-end
 
 function M.get_task_by(task_id, return_data)
   if return_data == nil then
@@ -76,15 +63,13 @@ end
 
 -- Function to list tasks
 function M.list_tasks()
-  local command = "task"
-  local _, result = M.execute_taskwarrior_command(command, true)
+  local _, result = M.execute_task_args({ "task" }, true)
   return result
 end
 
 -- Function to mark a task as done
 function M.mark_task_done(task_id)
-  local command = string.format("task %s done", task_id)
-  local result = M.execute_taskwarrior_command(command)
+  M.execute_task_args({ "task", task_id, "done" })
 end
 
 function M.modify_task(task_id, desc)
@@ -105,20 +90,18 @@ function M.modify_task_status(task_id, new_status)
 end
 
 function M.add_task_deps(current_task_id, deps)
-  local command = string.format("task %s modify dep:%s", current_task_id, table.concat(deps, ","))
-  local result = M.execute_taskwarrior_command(command)
+  M.execute_task_args({ "task", current_task_id, "modify", "dep:" .. table.concat(deps, ",") })
 end
 
 function M.get_blocked_tasks_by(uuid)
-  local command = string.format("task depends.has:%s export", uuid)
-  local status, result = M.execute_taskwarrior_command(command, true)
+  local status, result = M.execute_task_args({ "task", "depends.has:" .. uuid, "export" }, true)
   return status, result
 end
 
 function M.get_tasks_by(uuids)
   local tasks = {}
   for _, uuid in ipairs(uuids) do
-    local _, result = M.execute_taskwarrior_command(string.format("task %s export", uuid), true)
+    local _, result = M.execute_task_args({ "task", uuid, "export" }, true)
     if result then
       if vim == nil then
         local json = require("cjson")
@@ -135,8 +118,7 @@ function M.get_tasks_by(uuids)
 end
 
 function M.check_if_task_is_blocked(uuid)
-  local command = string.format("task %s -BLOCKED", uuid)
-  local _, result = M.execute_taskwarrior_command(command, true)
+  local _, result = M.execute_task_args({ "task", uuid, "-BLOCKED" }, true)
   if #result > 0 then
     return false
   end
