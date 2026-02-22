@@ -126,6 +126,7 @@ The goals of this plugin are:
         group = vim.api.nvim_create_augroup("TWTask", { clear = true }),
         pattern = "*.md,*.markdown", -- Pattern to match Markdown files
         callback = function()
+          vim.cmd('TWBufQueryTasks')
           vim.cmd('TWSyncTasks')
         end,
       })
