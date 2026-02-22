@@ -345,17 +345,7 @@ function M.add_or_sync_task(line, replace_desc)
   local _, _, uuid = string.match(line, M.id_part_pattern.lua)
   if uuid == nil then
     uuid = require("m_taskwarrior_d.task").add_task(desc)
-    local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
-    local clean_desc = new_task and new_task.description or M.trim(desc)
-    local spaces = count_leading_spaces(line)
-    result = string.rep(" ", spaces or 0)
-      .. list_sb
-      .. " "
-      .. M.checkbox_prefix
-      .. status
-      .. M.checkbox_suffix
-      .. " "
-      .. clean_desc
+    result = line:gsub("%s+$", "")
       .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
       .. " $id{"
       .. uuid
@@ -366,17 +356,7 @@ function M.add_or_sync_task(line, replace_desc)
     if require("m_taskwarrior_d.task").get_task_by(uuid) == nil then
       line = string.gsub(line, M.id_part_pattern.lua, "")
       uuid = require("m_taskwarrior_d.task").add_task(desc)
-      local new_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
-      local clean_desc = new_task and new_task.description or M.trim(desc)
-      local spaces = count_leading_spaces(line)
-      result = string.rep(" ", spaces or 0)
-        .. list_sb
-        .. " "
-        .. M.checkbox_prefix
-        .. status
-        .. M.checkbox_suffix
-        .. " "
-        .. clean_desc
+      result = line:gsub("%s+$", "")
         .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
         .. " $id{"
         .. uuid
@@ -400,8 +380,6 @@ function M.add_or_sync_task(line, replace_desc)
         local spaces = count_leading_spaces(line)
         if replace_desc then
           require("m_taskwarrior_d.task").modify_task(uuid, desc)
-          local updated_task = require("m_taskwarrior_d.task").get_task_by(uuid, "task")
-          local clean_desc = updated_task and updated_task.description or M.trim(desc)
           result = string.rep(" ", spaces or 0)
             .. list_sb
             .. " "
@@ -409,10 +387,10 @@ function M.add_or_sync_task(line, replace_desc)
             .. new_task_status_sym
             .. M.checkbox_suffix
             .. " "
-            .. clean_desc
+            .. M.trim(desc)
             .. (M.comment_prefix ~= "" and " " .. M.comment_prefix or M.comment_prefix)
             .. " $id{"
-            .. (updated_task and updated_task.uuid or new_task.uuid)
+            .. new_task.uuid
             .. "}"
             .. (M.comment_suffix ~= "" and " " .. M.comment_suffix or M.comment_suffix)
         else
